@@ -1,16 +1,16 @@
-# cdn
+# USP
 
-## instance for create a node of content delivery network
+## instance for create a node of content service proxy
 
 module to be installed on a J2EE server (tomcat for example)
 
 ### file structure
 
-#### `~/data/javlo_cdn` : contains the cache of files.
+#### `~/data/javlo_usp` : contains the cache of files.
 
 The folder can be hot deleted to **renew the cache**.
 
-#### `~/etc/javlo_cdn` : contains the definition of the hosts which can use the cdn/
+#### `~/etc/javlo_usp` : contains the definition of the hosts which can use the cdn/
 
 a host is defined by a properties file:
 
