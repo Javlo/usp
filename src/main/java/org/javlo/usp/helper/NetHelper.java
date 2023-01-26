@@ -79,11 +79,14 @@ public class NetHelper {
 	}
 
 	public static void main(String[] args) throws Exception {
-		String url = "https://www.javlo.org/img/laptop3/projection___phone.webp";
+		String url = "http://localhost:9090/usp/www.javlo.org/img/laptop3/projection___phone.webp";
+		//String url = "https://www.javlo.org/img/laptop3/projection___phone.webp";		
+		//String url = "http://localhost/javlo2/sexy/transform/screen1/bootstrap-5.2.0/content-large/comp-167346887293588770876/h1744848977/static/images/fun/47629-charley-atwell-nude.jpg.webp";
 
 		UspRequest usp = new UspRequest();
 		usp.addParam("name", "Patrick", true);
-		usp.addData("file", new FileInputStream(new File("c:/trans/work/1.jpg")), "3.jpg");
+		File src = new File("c:/trans/work/3.jpg");
+		usp.addData("file", new FileInputStream(src), src.getName());
 		
 		executeRequest(url, usp, new FileOutputStream(new File("c:/trans/work/out.jpg")));
 		

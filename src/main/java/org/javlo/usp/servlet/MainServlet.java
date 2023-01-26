@@ -228,14 +228,10 @@ public class MainServlet extends HttpServlet {
 										String sourceUrl = UrlHelper.mergePath(urlHost, uri);
 										System.out.println(">>>>>>>>> MainServlet.process : not found in cache 2"); //TODO: remove debug trace
 										sourceUrl = UrlHelper.addParam(sourceUrl, "ts", "" + System.currentTimeMillis(), false);
-										
 										System.out.println(">>>>>>>>> MainServlet.process : get input stream"); //TODO: remove debug trace
-										
 										System.out.println(">>>>>>>>> MainServlet.process : request.getContentType() = "+request.getContentType()); //TODO: remove debug trace
-										
 										Collection<Part> parts = request.getParts();
 										System.out.println(">>>>>>>>> MainServlet.process : #parts = "+parts.size()); //TODO: remove debug trace
-
 										if (parts.size()>1) {
 											File test = new File("c:/trans/test.jpg");
 											System.out.println(">>>>>>>>> MainServlet.process : test = "+test); //TODO: remove debug trace
@@ -243,7 +239,6 @@ public class MainServlet extends HttpServlet {
 										} else {
 											System.out.println(">>>>>>>>> MainServlet.process : no request inputStream"); //TODO: remove debug trace
 										}
-										
 										URL url = new URL(sourceUrl);
 										InputStream in = null;
 										try {
