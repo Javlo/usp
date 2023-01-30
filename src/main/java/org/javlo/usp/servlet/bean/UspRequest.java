@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.Proxy;
 import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.List;
@@ -17,15 +18,18 @@ import org.javlo.usp.helper.ResourceHelper;
 import org.javlo.usp.helper.StringHelper;
 
 public class UspRequest {
-	
+
 	public static class DataBean {
-		public DataBean(String name, byte[] data) {
+		public DataBean(String name, byte[] data, String fileName) {
 			super();
 			this.name = name;
 			this.data = data;
+			this.fileName = fileName;
 		}
+
 		public String name;
 		public byte[] data;
+		public String fileName;
 	}
 
 	public static final String PARAM_RELEVANT_HEADER = "_RELEVANT_HEADER";
@@ -37,9 +41,12 @@ public class UspRequest {
 	private String method = METHOD_POST;
 	private Map<String, String> header = new TreeMap<>();
 	private List<String> relevantHeader = new LinkedList<>();
-	private Map<String, String> params = new TreeMap<>();
+	private Map<String, String[]> params = new TreeMap<>();
 	private List<String> relevantParams = new LinkedList<>();
 	private Map<String, DataBean> data = new TreeMap<>();
+	
+	private String proxyHost;
+	private int proxyPort;
 
 	public UspRequest() {
 	};
@@ -56,17 +63,17 @@ public class UspRequest {
 		if (relParams != null) {
 			relevantParams = StringHelper.stringToCollection(relParams, ",");
 		}
-		
-		rs.getParameterMap().forEach((k,v) -> {
+
+		rs.getParameterMap().forEach((k, v) -> {
 			addParam(k, v.toString(), relevantParams.contains(k));
 		});
-		
+
 		Enumeration<String> headerKeys = request.getHeaderNames();
 		while (headerKeys.hasMoreElements()) {
 			String key = headerKeys.nextElement();
 			addHeader(key, request.getHeader(key), relevantHeader.contains(key));
 		}
-		
+
 		rs.getAllFileItem().forEach(fi -> {
 			try {
 				addData(fi.getName(), fi.getInputStream(), fi.getFieldName());
@@ -76,7 +83,7 @@ public class UspRequest {
 		});
 
 	}
-	
+
 	public Map<String, String> getHeader() {
 		return header;
 	}
@@ -87,27 +94,34 @@ public class UspRequest {
 			relevantHeader.add(name);
 		}
 	}
-	
-	public Map<String, String> getParams() {
+
+	public Map<String, String[]> getParams() {
 		return params;
 	}
 
 	public void addParam(String name, String value, boolean relevant) {
-		params.put(name, value);
+		params.put(name, new String[] {value});
 		if (relevant) {
 			relevantParams.add(name);
 		}
 	}
 	
+	public void addParam(String name, String[] value, boolean relevant) {
+		params.put(name, value);
+		if (relevant) {
+			relevantParams.add(name);
+		}
+	}
+
 	public Map<String, DataBean> getData() {
 		return data;
 	}
-	
-	public void addData(String name, InputStream in, String dataName) throws IOException {
+
+	public void addData(String name, InputStream in, String fileName) throws IOException {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		ResourceHelper.writeStreamToStream(in, out);
-		System.out.println(">>>>>>>>> UspRequest.addData : #out.toByteArray() = "+out.toByteArray().length); //TODO: remove debug trace
-		data.put(name, new DataBean(dataName, out.toByteArray()));
+		System.out.println(">>>>>>>>> UspRequest.addData : #out.toByteArray() = " + out.toByteArray().length); // TODO: remove debug trace
+		data.put(name, new DataBean(name, out.toByteArray(), fileName));
 	}
 
 	public void setMethod(String method) {
@@ -140,7 +154,9 @@ public class UspRequest {
 				try {
 					if (relevantParams.contains(k)) {
 						hashStream.write(k.getBytes());
-						hashStream.write(v.getBytes());
+						for (String str : v) {
+							hashStream.write(str.getBytes());
+						}
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -160,9 +176,22 @@ public class UspRequest {
 			return null;
 		}
 	}
-	
+
 	public boolean isMultipart() {
-		return data.size()>0;
+		return data.size() > 0;
+	}
+
+	public void setProxy(String host, int port) {
+		this.proxyHost = host;
+		this.proxyPort = port;
+	}
+
+	public String getProxyHost() {
+		return proxyHost;
+	}
+
+	public int getProxyPort() {
+		return proxyPort;
 	}
 
 }

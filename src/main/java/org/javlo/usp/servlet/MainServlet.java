@@ -1,5 +1,7 @@
 package org.javlo.usp.servlet;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
@@ -10,10 +12,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,28 +27,37 @@ import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.Part;
 
+import org.apache.commons.fileupload.FileItem;
+import org.apache.commons.fileupload.FileUploadException;
+import org.apache.commons.fileupload.disk.DiskFileItemFactory;
+import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.javlo.usp.helper.NetHelper;
 import org.javlo.usp.helper.ResourceHelper;
 import org.javlo.usp.helper.StringHelper;
 import org.javlo.usp.helper.UrlHelper;
+import org.javlo.usp.servlet.bean.UspRequest;
 
-@MultipartConfig(fileSizeThreshold=1024*1024*8*10,maxFileSize=1024*1024*8*50,maxRequestSize=1024*1024*8*100)
+@MultipartConfig(fileSizeThreshold = 1024 * 1024 * 8 * 10, maxFileSize = 1024 * 1024 * 8 * 50, maxRequestSize = 1024 * 1024 * 8 * 100)
 public class MainServlet extends HttpServlet {
 
+	public static final long MAX_UPLOAD_SIZE = 2l * 1024l * 1024l * 1024l; // 2 giga max size
+
 	private static final String URL_TARGET = "url.target";
+	private static final String PROXY_HOST = "proxy.host";
+	private static final String PROXY_PORT = "proxy.port";
 	private static final int DEFAULT_BUFFER_SIZE = 10240; // ..bytes = 10KB.
 	public static final long DEFAULT_EXPIRE_TIME = 604800000L; // ..ms = 1 week.
 	private static final String MULTIPART_BOUNDARY = "MULTIPART_BYTERANGES";
 
 	private static final Properties NOT_FOUND = new Properties();
-	
+
 	private static final String HASH_PARAM_NAME = "_USP_HASH";
 
 	private static Logger logger = Logger.getLogger(MainServlet.class.getName());
 
-	private static final String VERSION = "B 0.0.2";
-	
+	private static final String VERSION = "B 0.0.3";
+
 	private static Map<String, Properties> config = new HashMap<>();
 
 	public static File CONFIG_FOLDER = new File(System.getProperty("user.home") + "/etc/usp");
@@ -73,11 +82,11 @@ public class MainServlet extends HttpServlet {
 				String host = file.getName().replace(".properties", "");
 				try {
 					Properties prop = getConfig(host);
-					String url = prop.getProperty(URL_TARGET);
-					System.out.println("     "+host+" >> "+url);
+					System.out.println("     " + host + " >> " + prop.getProperty(URL_TARGET));
+					System.out.println("     proxy >> " +  prop.getProperty(PROXY_HOST)+":"+prop.getProperty(PROXY_PORT));
 				} catch (Exception e) {
 					e.printStackTrace();
-				}				
+				}
 			}
 		}
 		System.out.println("");
@@ -94,7 +103,7 @@ public class MainServlet extends HttpServlet {
 	private static final File createFileCache(String host, String uri, String hash, Boolean compress) {
 		File file = new File(DATA_FOLDER.getAbsolutePath() + '/' + StringHelper.createFileName(host) + '/' + hash + '/' + StringHelper.createFileName(uri) + "." + StringHelper.getFileExtension(uri).toLowerCase());
 		if (compress == null && !file.exists()) {
-			File cFile = new File(DATA_FOLDER.getAbsolutePath() + '/' + StringHelper.createFileName(host) + '/' + hash + '/'+ StringHelper.createFileName(uri) + "." + StringHelper.getFileExtension(uri).toLowerCase() + ".gzip");
+			File cFile = new File(DATA_FOLDER.getAbsolutePath() + '/' + StringHelper.createFileName(host) + '/' + hash + '/' + StringHelper.createFileName(uri) + "." + StringHelper.getFileExtension(uri).toLowerCase() + ".gzip");
 			if (cFile.exists()) {
 				return cFile;
 			}
@@ -150,18 +159,23 @@ public class MainServlet extends HttpServlet {
 			}
 		}
 		OutputStream out = null;
+		OutputStream outFile = null;
 		File cacheFile = createFileCache(host, uri, hash, compress);
 		try {
-			if (in.available()>0) {
+			if (in.available() > 0) {
 				cacheFile.getParentFile().mkdirs();
 			}
 			out = new FileOutputStream(cacheFile);
+			outFile = out;
 			if (compress) {
 				out = new GZIPOutputStream(out);
 			}
 			ResourceHelper.writeStreamToStream(in, out);
 		} finally {
 			out.close();
+			if (outFile != out) {
+				outFile.close();
+			}
 		}
 		return getInCache(host, uri, hash);
 	}
@@ -211,6 +225,7 @@ public class MainServlet extends HttpServlet {
 			String host = StringHelper.getDomainName(request.getRequestURL().toString());
 			String uri = request.getPathInfo();
 			String hash = request.getHeader(HASH_PARAM_NAME);
+
 			if (uri.length() > 3) {
 				uri = uri.substring(1); // remove '/'
 				Properties config = getConfig(host);
@@ -224,9 +239,8 @@ public class MainServlet extends HttpServlet {
 						logger.severe("context not found.");
 					}
 				}
-				
+
 				if (config != null) {
-					System.out.println(">>>>>>>>> MainServlet.process : config found."); //TODO: remove debug trace
 					String urlHost = config.getProperty(URL_TARGET);
 					if (urlHost != null) {
 						if (uri.equals("/" + config.get("code.reset"))) {
@@ -238,30 +252,45 @@ public class MainServlet extends HttpServlet {
 							if (cache == null) {
 								synchronized (this) {
 									cache = getInCache(host, uri, hash);
-									System.out.println(">>>>>>>>> MainServlet.process : cache = "+cache); //TODO: remove debug trace
+									String sourceUrl = UrlHelper.mergePath(urlHost, uri);
 									if (cache == null) {
-										System.out.println(">>>>>>>>> MainServlet.process : not found in cache 1"); //TODO: remove debug trace
-										System.out.println(">>>>>>>>> MainServlet.process : urlHost = "+urlHost); //TODO: remove debug trace
-										System.out.println(">>>>>>>>> MainServlet.process : uri     = "+uri); //TODO: remove debug trace
-										String sourceUrl = UrlHelper.mergePath(urlHost, uri);
-										System.out.println(">>>>>>>>> MainServlet.process : not found in cache 2"); //TODO: remove debug trace
+										logger.info("not found in cache : " + sourceUrl);
 										sourceUrl = UrlHelper.addParam(sourceUrl, "ts", "" + System.currentTimeMillis(), false);
-										System.out.println(">>>>>>>>> MainServlet.process : get input stream"); //TODO: remove debug trace
-										System.out.println(">>>>>>>>> MainServlet.process : request.getContentType() = "+request.getContentType()); //TODO: remove debug trace
-										Collection<Part> parts = request.getParts();
-										System.out.println(">>>>>>>>> MainServlet.process : #parts = "+parts.size()); //TODO: remove debug trace
-										if (parts.size()>1) {
-											File test = new File("c:/trans/test.jpg");
-											System.out.println(">>>>>>>>> MainServlet.process : test = "+test); //TODO: remove debug trace
-											ResourceHelper.writeStreamToFile(parts.iterator().next().getInputStream(), test);
-										} else {
-											System.out.println(">>>>>>>>> MainServlet.process : no request inputStream"); //TODO: remove debug trace
+										DiskFileItemFactory factory = new DiskFileItemFactory();
+										ServletFileUpload upload = new ServletFileUpload(factory);
+										upload.setFileSizeMax(MAX_UPLOAD_SIZE);
+										List<FileItem> items = null;
+
+										try {
+											items = upload.parseRequest(request);
+										} catch (FileUploadException e) {
+											e.printStackTrace();
 										}
+
 										URL url = new URL(sourceUrl);
 										InputStream in = null;
 										try {
-											URLConnection conn = url.openConnection();
-											in = conn.getInputStream();
+											UspRequest usp = new UspRequest();
+											if (config.getProperty(PROXY_HOST) != null && config.getProperty(PROXY_PORT) != null) {
+												usp.setProxy(config.getProperty(PROXY_HOST) , Integer.parseInt(config.getProperty(PROXY_PORT)));
+											}
+											items.forEach(i -> {
+												try {
+													usp.addData(i.getFieldName(), i.getInputStream(), i.getName());
+												} catch (IOException e) {
+													logger.severe("expection on param : " + i.getName());
+													e.printStackTrace();
+												}
+											});
+
+											request.getParameterMap().entrySet().forEach(e -> {
+												usp.addParam(e.getKey(), e.getValue(), false);
+											});
+
+											ByteArrayOutputStream out = new ByteArrayOutputStream();
+											NetHelper.executeRequest(url.toString(), usp, out);
+											// URLConnectionrl.openConnection();
+											in = new ByteArrayInputStream(out.toByteArray());
 											logger.info("add in cache : " + sourceUrl);
 											cache = putInCache(host, uri, hash, in);
 										} catch (Exception e) {
@@ -271,13 +300,11 @@ public class MainServlet extends HttpServlet {
 											ResourceHelper.safeClose(in);
 										}
 									} else {
-										System.out.println(">>>>>>>>> MainServlet.process : found in cache 1"); //TODO: remove debug trace
+										logger.info("found in cache : " + sourceUrl);
 									}
 								}
 							}
-							System.out.println(">>>>>>>>> MainServlet.process : BETWEEN IF"); //TODO: remove debug trace
 							if (cache != null) {
-								System.out.println(">>>>>>>>> MainServlet.process : found in cache 2"); //TODO: remove debug trace
 								if (cache.getMimeType() != null) {
 									response.setContentType(cache.getMimeType());
 								}
@@ -452,11 +479,11 @@ public class MainServlet extends HttpServlet {
 		// supported by
 		// the browser and expand content type with the one and right character
 		// encoding.
-//		if (contentType.startsWith("text")) {
-//			String acceptEncoding = request.getHeader("Accept-Encoding");
-//			acceptsGzip = acceptEncoding != null && accepts(acceptEncoding, "gzip");
-//			contentType += ";charset=UTF-8";
-//		}
+		// if (contentType.startsWith("text")) {
+		// String acceptEncoding = request.getHeader("Accept-Encoding");
+		// acceptsGzip = acceptEncoding != null && accepts(acceptEncoding, "gzip");
+		// contentType += ";charset=UTF-8";
+		// }
 
 		// Else, expect for images, determine content disposition. If content type is
 		// supported by
@@ -468,7 +495,7 @@ public class MainServlet extends HttpServlet {
 		}
 
 		// Initialize response.
-		//response.reset();
+		// response.reset();
 		response.setBufferSize(DEFAULT_BUFFER_SIZE);
 		response.setHeader("Content-Disposition", disposition + ";filename=\"" + cache.getFile().getName() + "\"");
 		response.setHeader("Accept-Ranges", "bytes");
@@ -498,7 +525,7 @@ public class MainServlet extends HttpServlet {
 					if (acceptsGzip) {
 						// The browser accepts GZIP, so GZIP the content.
 						response.setHeader("Content-Encoding", "gzip");
-						//output = new GZIPOutputStream(output, DEFAULT_BUFFER_SIZE);
+						// output = new GZIPOutputStream(output, DEFAULT_BUFFER_SIZE);
 					} else {
 						// Content length is not directly predictable in case of GZIP.
 						// So only add it if there is no means of GZIP, else browser will hang.
