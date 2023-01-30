@@ -36,6 +36,7 @@ import org.javlo.usp.helper.UrlHelper;
 @MultipartConfig(fileSizeThreshold=1024*1024*8*10,maxFileSize=1024*1024*8*50,maxRequestSize=1024*1024*8*100)
 public class MainServlet extends HttpServlet {
 
+	private static final String URL_TARGET = "url.target";
 	private static final int DEFAULT_BUFFER_SIZE = 10240; // ..bytes = 10KB.
 	public static final long DEFAULT_EXPIRE_TIME = 604800000L; // ..ms = 1 week.
 	private static final String MULTIPART_BOUNDARY = "MULTIPART_BYTERANGES";
@@ -46,7 +47,7 @@ public class MainServlet extends HttpServlet {
 
 	private static Logger logger = Logger.getLogger(MainServlet.class.getName());
 
-	private static final String VERSION = "B 0.0.1";
+	private static final String VERSION = "B 0.0.2";
 	
 	private static Map<String, Properties> config = new HashMap<>();
 
@@ -63,6 +64,23 @@ public class MainServlet extends HttpServlet {
 		System.out.println("");
 		System.out.println("CONFIG_FOLDER = " + CONFIG_FOLDER);
 		System.out.println("DATA_FOLDER   = " + DATA_FOLDER);
+		DATA_FOLDER.mkdirs();
+		CONFIG_FOLDER.mkdirs();
+		System.out.println("");
+		System.out.println("SERVICE FOUND : ");
+		for (File file : DATA_FOLDER.listFiles()) {
+			if (file.getName().endsWith(".properties")) {
+				String host = file.getName().replace(".properties", "");
+				try {
+					Properties prop = getConfig(host);
+					String url = prop.getProperty(URL_TARGET);
+					System.out.println("     "+host+" >> "+url);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}				
+			}
+		}
+		System.out.println("");
 
 		if (!CONFIG_FOLDER.exists()) {
 			CONFIG_FOLDER.mkdirs();
@@ -209,7 +227,7 @@ public class MainServlet extends HttpServlet {
 				
 				if (config != null) {
 					System.out.println(">>>>>>>>> MainServlet.process : config found."); //TODO: remove debug trace
-					String urlHost = config.getProperty("url.target");
+					String urlHost = config.getProperty(URL_TARGET);
 					if (urlHost != null) {
 						if (uri.equals("/" + config.get("code.reset"))) {
 							reset(host);

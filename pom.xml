@@ -4,7 +4,7 @@
 	<groupId>org.javlo</groupId>
 	<artifactId>usp</artifactId>
 	<packaging>war</packaging>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<name>Universal Service Proxy</name>
 
 	<licenses>
@@ -37,6 +37,12 @@
 			<version>3.1.0</version>
 			<scope>provided</scope>
 		</dependency>
+		
+		<dependency>
+			<groupId>commons-fileupload</groupId>
+			<artifactId>commons-fileupload</artifactId>
+			<version>1.4</version>
+		</dependency>
 
 		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
 		<dependency>
@@ -44,13 +50,7 @@
 			<artifactId>commons-lang3</artifactId>
 			<version>3.12.0</version>
 		</dependency>
-
-		<dependency>
-			<groupId>org.owasp.encoder</groupId>
-			<artifactId>encoder</artifactId>
-			<version>1.2.2</version>
-		</dependency>
-
+		
 		<!-- https://mvnrepository.com/artifact/org.apache.httpcomponents.client5/httpclient5 -->
 		<dependency>
 			<groupId>org.apache.httpcomponents.client5</groupId>
@@ -59,21 +59,14 @@
 		</dependency>
 
 		<dependency>
-			<groupId>commons-fileupload</groupId>
-			<artifactId>commons-fileupload</artifactId>
-			<version>1.4</version>
-		</dependency>
-		
-		<dependency>
 			<groupId>org.owasp.encoder</groupId>
 			<artifactId>encoder</artifactId>
-			<version>1.2.3</version>
+			<version>1.2.1</version>
 		</dependency>
-
 	</dependencies>
 
 	<build>
-		<finalName>cdn</finalName>
+		<finalName>usp</finalName>
 		<outputDirectory>${basedir}/src/main/webapp/WEB-INF/classes</outputDirectory>
 		<plugins>
 			<plugin>
