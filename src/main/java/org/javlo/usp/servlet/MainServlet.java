@@ -56,7 +56,7 @@ public class MainServlet extends HttpServlet {
 
 	private static Logger logger = Logger.getLogger(MainServlet.class.getName());
 
-	private static final String VERSION = "B 0.0.3";
+	private static final String VERSION = "B 0.0.4";
 
 	private static Map<String, Properties> config = new HashMap<>();
 
@@ -90,7 +90,6 @@ public class MainServlet extends HttpServlet {
 			}
 		}
 		System.out.println("");
-
 		if (!CONFIG_FOLDER.exists()) {
 			CONFIG_FOLDER.mkdirs();
 		}
@@ -222,9 +221,18 @@ public class MainServlet extends HttpServlet {
 
 	private void process(HttpServletRequest request, HttpServletResponse response, boolean post, boolean content) {
 		try {
-			String host = StringHelper.getDomainName(request.getRequestURL().toString());
+			//String host = StringHelper.getDomainName(request.getRequestURL().toString());
 			String uri = request.getPathInfo();
 			String hash = request.getHeader(HASH_PARAM_NAME);
+			
+			String host = uri.split("/")[0];
+			if (host.length() == 0) {
+				host = uri.split("/")[1];
+			}
+			
+			System.out.println(">>>>>>> host = "+host);
+			System.out.println(">>>>>>> uri = "+uri);
+			System.out.println(">>>>>>> hash = "+hash);
 
 			if (uri.length() > 3) {
 				uri = uri.substring(1); // remove '/'
@@ -236,7 +244,7 @@ public class MainServlet extends HttpServlet {
 						uri = uri.substring(index);
 						config = getConfig(host);
 					} else {
-						logger.severe("context not found.");
+						logger.severe("context not found : "+host);
 					}
 				}
 
@@ -253,6 +261,7 @@ public class MainServlet extends HttpServlet {
 								synchronized (this) {
 									cache = getInCache(host, uri, hash);
 									String sourceUrl = UrlHelper.mergePath(urlHost, uri);
+									System.out.println(">>>>>>> sourceUrl = "+sourceUrl);
 									if (cache == null) {
 										logger.info("not found in cache : " + sourceUrl);
 										sourceUrl = UrlHelper.addParam(sourceUrl, "ts", "" + System.currentTimeMillis(), false);
@@ -260,13 +269,11 @@ public class MainServlet extends HttpServlet {
 										ServletFileUpload upload = new ServletFileUpload(factory);
 										upload.setFileSizeMax(MAX_UPLOAD_SIZE);
 										List<FileItem> items = null;
-
 										try {
 											items = upload.parseRequest(request);
 										} catch (FileUploadException e) {
 											e.printStackTrace();
 										}
-
 										URL url = new URL(sourceUrl);
 										InputStream in = null;
 										try {
@@ -282,11 +289,9 @@ public class MainServlet extends HttpServlet {
 													e.printStackTrace();
 												}
 											});
-
 											request.getParameterMap().entrySet().forEach(e -> {
 												usp.addParam(e.getKey(), e.getValue(), false);
 											});
-
 											ByteArrayOutputStream out = new ByteArrayOutputStream();
 											NetHelper.executeRequest(url.toString(), usp, out);
 											// URLConnectionrl.openConnection();

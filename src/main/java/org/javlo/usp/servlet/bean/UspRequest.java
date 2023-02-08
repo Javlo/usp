@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.Proxy;
 import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.List;
@@ -47,6 +46,7 @@ public class UspRequest {
 	
 	private String proxyHost;
 	private int proxyPort;
+	private boolean checkSsl = true;
 
 	public UspRequest() {
 	};
@@ -192,6 +192,14 @@ public class UspRequest {
 
 	public int getProxyPort() {
 		return proxyPort;
+	}
+
+	public boolean isCheckSsl() {
+		return checkSsl;
+	}
+
+	public void setCheckSsl(boolean checkSsl) {
+		this.checkSsl = checkSsl;
 	}
 
 }
