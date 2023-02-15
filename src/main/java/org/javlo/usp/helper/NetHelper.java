@@ -90,6 +90,7 @@ public class NetHelper {
 					addParam(url, k, str);
 				}
 			});
+			
 			HttpPost httpPost = new HttpPost(url.toString());
 			if (usp.getProxyHost() != null && usp.getProxyPort() > 0) {
 				logger.info("proxy : "+usp.getProxyHost()+':'+usp.getProxyPort());
@@ -97,10 +98,12 @@ public class NetHelper {
 				RequestConfig config = RequestConfig.custom().setProxy(proxy).build();
 				httpPost.setConfig(config);
 			}
-			httpPost.addHeader("_USP_HASH", usp.getHash());
+			
 			usp.getHeader().forEach((k, v) -> {
-				httpPost.addHeader(k, v);
+				httpPost.setHeader(k, v);
 			});
+			httpPost.setHeader(UspRequest.HASH_PARAM_NAME, usp.getHash());
+			
 			usp.getData().forEach((k, v) -> {
 				ByteArrayInputStream data = new ByteArrayInputStream(v.data);
 				HttpEntity httpEntiry = MultipartEntityBuilder.create()
@@ -146,7 +149,7 @@ public class NetHelper {
 		// Install the all-trusting host verifier
 		HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
 
-		String url = "https://eptoolkitlb.secure.ep.parl.union.eu/usp/javloorg/img/laptop3/projection___phone.webp";
+		String url = "https://eptoolkitlb.secure.ep.parl.union.eu/usp/javloorg/img/laptop2/projection___phone.webp";
 		// String url =
 		// "http://localhost:9090/usp/www.javlo.org/img/laptop3/projection___phone.webp";
 		// String url = "https://www.javlo.org/img/laptop3/projection___phone.webp";
@@ -154,7 +157,7 @@ public class NetHelper {
 		// "http://localhost/javlo2/sexy/transform/screen1/bootstrap-5.2.0/content-large/comp-167346887293588770876/h1744848977/static/images/fun/47629-charley-atwell-nude.jpg.webp";
 
 		UspRequest usp = new UspRequest();
-		usp.setCheckSsl(true);
+		usp.setCheckSsl(false);
 		usp.addParam("name", "Patrick", true);
 		File src = new File("c:/trans/work/1.jpg");
 		usp.addData("file", new FileInputStream(src), src.getName());

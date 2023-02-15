@@ -31,11 +31,13 @@ public class UspRequest {
 		public String fileName;
 	}
 
-	public static final String PARAM_RELEVANT_HEADER = "_RELEVANT_HEADER";
-	public static final String PARAM_RELEVANT_PARAMS = "_RELEVANT_PARAMS";
+	public static final String PARAM_RELEVANT_HEADER = "RELEVANT_HEADER";
+	public static final String PARAM_RELEVANT_PARAMS = "RELEVANT_PARAMS";
 
 	public static final String METHOD_POST = "post";
 	public static final String METHOD_GET = "get";
+	
+	public static final String HASH_PARAM_NAME = "usp-hash";
 
 	private String method = METHOD_POST;
 	private Map<String, String> header = new TreeMap<>();
@@ -119,8 +121,7 @@ public class UspRequest {
 
 	public void addData(String name, InputStream in, String fileName) throws IOException {
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		ResourceHelper.writeStreamToStream(in, out);
-		System.out.println(">>>>>>>>> UspRequest.addData : #out.toByteArray() = " + out.toByteArray().length); // TODO: remove debug trace
+		ResourceHelper.writeStreamToStream(in, out);		
 		data.put(name, new DataBean(name, out.toByteArray(), fileName));
 	}
 

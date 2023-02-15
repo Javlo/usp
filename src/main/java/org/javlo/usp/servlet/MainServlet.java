@@ -14,6 +14,7 @@ import java.io.RandomAccessFile;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,8 +52,6 @@ public class MainServlet extends HttpServlet {
 	private static final String MULTIPART_BOUNDARY = "MULTIPART_BYTERANGES";
 
 	private static final Properties NOT_FOUND = new Properties();
-
-	private static final String HASH_PARAM_NAME = "_USP_HASH";
 
 	private static Logger logger = Logger.getLogger(MainServlet.class.getName());
 
@@ -223,16 +222,17 @@ public class MainServlet extends HttpServlet {
 		try {
 			//String host = StringHelper.getDomainName(request.getRequestURL().toString());
 			String uri = request.getPathInfo();
-			String hash = request.getHeader(HASH_PARAM_NAME);
+			
+			String hash = request.getHeader(UspRequest.HASH_PARAM_NAME);
 			
 			String host = uri.split("/")[0];
 			if (host.length() == 0) {
 				host = uri.split("/")[1];
 			}
 			
-			System.out.println(">>>>>>> host = "+host);
-			System.out.println(">>>>>>> uri = "+uri);
-			System.out.println(">>>>>>> hash = "+hash);
+			uri = uri.replaceFirst(host+"/", "");
+			
+			logger.info("hash = "+hash);
 
 			if (uri.length() > 3) {
 				uri = uri.substring(1); // remove '/'
@@ -261,7 +261,6 @@ public class MainServlet extends HttpServlet {
 								synchronized (this) {
 									cache = getInCache(host, uri, hash);
 									String sourceUrl = UrlHelper.mergePath(urlHost, uri);
-									System.out.println(">>>>>>> sourceUrl = "+sourceUrl);
 									if (cache == null) {
 										logger.info("not found in cache : " + sourceUrl);
 										sourceUrl = UrlHelper.addParam(sourceUrl, "ts", "" + System.currentTimeMillis(), false);
@@ -297,7 +296,9 @@ public class MainServlet extends HttpServlet {
 											// URLConnectionrl.openConnection();
 											in = new ByteArrayInputStream(out.toByteArray());
 											logger.info("add in cache : " + sourceUrl);
-											cache = putInCache(host, uri, hash, in);
+											if (hash != null) {
+												cache = putInCache(host, uri, hash, in);
+											}
 										} catch (Exception e) {
 											e.printStackTrace();
 											logger.severe("error connection : " + url);
@@ -305,9 +306,11 @@ public class MainServlet extends HttpServlet {
 											ResourceHelper.safeClose(in);
 										}
 									} else {
-										logger.info("found in cache : " + sourceUrl);
+										logger.info("found in cache [synchronized] : " + uri);
 									}
 								}
+							} else {
+								logger.info("found in cache : " + uri);
 							}
 							if (cache != null) {
 								if (cache.getMimeType() != null) {
